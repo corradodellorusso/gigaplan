@@ -100,13 +100,14 @@ node bin/gigaplan.js review path/to/plan.md   # or `npm link` once, then plain `
 ```
 npm run typecheck # tsc --noEmit against both the server and client TypeScript
 npm test          # node:test, run directly against .ts sources via tsx
+npm run test:ui   # Playwright-driven browser UI tests (test/ui/*.test.ts); run
+                   # `npx playwright install chromium` once first
 npm run build     # compiles src/*.ts -> dist/, client/chrome.ts -> public/chrome.js
 ```
 
 Read `CLAUDE.md` first — it covers the architecture (why the project is
 ESM-only, the two separate TypeScript compilations for server vs. browser
 code, the request flow through the server, how comment anchoring and
-live-reload reconciliation work) and what manual verification looks like for
-the parts of the codebase the test suite doesn't cover (the CLI process
-lifecycle and the browser UI have no automated coverage — changes there need
-an actual browser, not just a green type-check).
+live-reload reconciliation work) and what manual verification still looks
+like for the one part of the codebase test suites don't cover (the CLI
+process lifecycle — the browser UI itself is covered by `npm run test:ui`).

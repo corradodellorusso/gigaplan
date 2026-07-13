@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 
-export const STATE_DIR = path.join(os.homedir(), ".gigaplan");
+export const STATE_DIR = process.env.GIGAPLAN_HOME || path.join(os.homedir(), ".gigaplan");
 export const STATE_FILE = path.join(STATE_DIR, "state.json");
 export const SERVER_LOCK_FILE = path.join(STATE_DIR, "server.json");
 

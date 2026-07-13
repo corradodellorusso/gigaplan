@@ -19,7 +19,8 @@
     "build": "tsc -p tsconfig.server.json && tsc -p tsconfig.client.json",
     "prepare": "npm run build",
     "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json",
-    "test": "node --import tsx --test test/**/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:ui": "node --import tsx --test test/ui/*.test.ts"
   },
   "dependencies": {
     "chokidar": "^5.0.0",
@@ -31,6 +32,7 @@
     "@types/express": "^5.0.6",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^24.13.3",
+    "playwright": "^1.61.1",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3"
   },

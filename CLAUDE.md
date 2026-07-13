@@ -145,18 +145,32 @@ installer), globally or per-project.
 
 ## Verifying changes
 
-There's no automated coverage for the CLI process lifecycle or the browser UI
-— `test/*.test.ts` only covers `src/markdown.ts` (block extraction/
-reconciliation) and `src/session-store.ts` (CRUD + lock staleness) via
-`node:test`. Changes to `src/server.ts`, `src/cli.ts`, or `client/chrome.ts`
-need manual verification: run the CLI commands above against
-`test/fixtures/sample-plan.md` (or `test/fixtures/jwt-migration-plan.md`, a
-richer fixture with all six section "flavors" — prose, ordered steps, a GFM
-checklist, a code fence, bullets, and mixed content — closer to what the
-design was built against), and for UI changes, actually open the session URL
-in a browser rather than trusting the type-check alone. Playwright (cached
-under `~/.npm/_npx/`, launched via `chromium.launch()`) is what was used to
-screenshot both themes and drive the full comment/verdict/submit loop during
-development — `page.goto(url, { waitUntil: "load" })`, not `"networkidle"`:
-the SSE connection to `/api/sessions/:key/events` never idles, so
-`networkidle` hangs forever.
+There's no automated coverage for the CLI process lifecycle — that still
+needs manual verification (run the CLI commands above against
+`test/fixtures/sample-plan.md`). The browser UI, though, has real coverage now:
+`npm run test:ui` (`test/ui/*.test.ts`, `node:test` + plain `playwright`, kept
+separate from the fast default `npm test` since it needs a browser —
+`playwright install chromium` once locally) drives comment/edit/remove,
+verdict-gating rules, submit -> poll, theme toggle, live-reload reconciliation
+(stale + orphaned comments), and rendering edge cases via
+`test/fixtures/torture-test-plan.md`.
+
+`test/ui/harness.ts` spins up an isolated server per test file: a spawned
+child process (`test/ui/server-entry.ts`), not an in-process import — because
+`createApp()`'s idle-timeout middleware calls `process.exit(0)` directly, and
+importing it in-process would risk killing the test runner itself if a slow
+suite ever tripped that timer. Each child gets its own OS-assigned free port
+and its own `GIGAPLAN_HOME` temp dir (an env override on `STATE_DIR`, same
+pattern as `GIGAPLAN_PORT`/`GIGAPLAN_IDLE_TIMEOUT_MS`), so tests never touch
+the real `~/.gigaplan/state.json`. Playwright launches its own disposable
+Chromium (`chromium.launch()` + a fresh context with clipboard permissions
+granted for the copy-button test) — never the developer's actual browser.
+
+For changes not covered by `test:ui` (or when iterating manually), run the
+CLI commands above against `test/fixtures/sample-plan.md` (or
+`test/fixtures/jwt-migration-plan.md`, a richer fixture with all six section
+"flavors" — prose, ordered steps, a GFM checklist, a code fence, bullets, and
+mixed content), and actually open the session URL in a browser rather than
+trusting the type-check alone. `page.goto(url, { waitUntil: "load" })`, not
+`"networkidle"`: the SSE connection to `/api/sessions/:key/events` never
+idles, so `networkidle` hangs forever.
