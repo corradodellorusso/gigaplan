@@ -1,0 +1,44 @@
+{
+  "name": "gigaplan",
+  "version": "0.1.0",
+  "description": "Review agent-authored implementation plans in a GitHub-PR-style browser UI. Agents write plain Markdown; gigaplan renders, themes, and collects structured feedback.",
+  "type": "module",
+  "bin": {
+    "gigaplan": "bin/gigaplan.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "public",
+    "skills"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.server.json && tsc -p tsconfig.client.json",
+    "prepare": "npm run build",
+    "typecheck": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json",
+    "test": "node --import tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "express": "^5.2.1",
+    "markdown-it": "^14.3.0",
+    "open": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^24.13.3",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.3"
+  },
+  "keywords": [
+    "plan-review",
+    "code-review",
+    "claude-code",
+    "cli"
+  ],
+  "license": "MIT"
+}
