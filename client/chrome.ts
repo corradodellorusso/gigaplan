@@ -41,7 +41,6 @@ interface PendingComment {
 interface Section {
   id: string;
   headingBlockId: string | null;
-  num: string;
   title: string;
   items: BlockDTO[];
 }
@@ -53,6 +52,8 @@ const ICON_PATHS: Record<string, string> = {
   "chevron-right": '<path d="m9 18 6-6-6-6"/>',
   "message-square":
     '<path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/>',
+  "message-square-check":
+    '<path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.7.7 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/><path d="m9 11 2 2 4-4"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
   moon: '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
@@ -70,7 +71,6 @@ function buildSections(blocks: BlockDTO[]): { pageTitle: string; sections: Secti
   let pageTitle = "";
   const sections: Section[] = [];
   let current: Section | null = null;
-  let counter = 0;
 
   for (const block of blocks) {
     if (block.headingLevel === 1 && !pageTitle) {
@@ -78,11 +78,9 @@ function buildSections(blocks: BlockDTO[]): { pageTitle: string; sections: Secti
       continue;
     }
     if (block.headingLevel === 2) {
-      counter++;
       current = {
         id: block.id,
         headingBlockId: block.id,
-        num: String(counter).padStart(2, "0"),
         title: block.headingBreadcrumb[block.headingBreadcrumb.length - 1] ?? block.excerpt,
         items: [],
       };
@@ -90,11 +88,9 @@ function buildSections(blocks: BlockDTO[]): { pageTitle: string; sections: Secti
       continue;
     }
     if (!current) {
-      counter++;
       current = {
         id: `intro-${block.id}`,
         headingBlockId: null,
-        num: String(counter).padStart(2, "0"),
         title: "Overview",
         items: [],
       };
@@ -123,6 +119,28 @@ function initials(name: string): string {
     .join("");
 }
 
+// Ported from the Belief design system's Avatar.jsx: a deterministic
+// per-name color from a fixed 6-color palette, so "You" always gets the
+// same circle color across a session instead of a flat neutral fill.
+const AVATAR_COLORS = [
+  "var(--avatar-1)",
+  "var(--avatar-2)",
+  "var(--avatar-3)",
+  "var(--avatar-4)",
+  "var(--avatar-5)",
+  "var(--avatar-6)",
+];
+
+function avatarColorFor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function avatarHtml(name: string, size: "sm" = "sm"): string {
+  return `<span class="cdr-avatar cdr-avatar--${size}" style="background:${avatarColorFor(name)}">${initials(name)}</span>`;
+}
+
 /* ---------------------------------------------------------- state */
 
 const dataEl = document.getElementById("gigaplan-data");
@@ -137,7 +155,6 @@ const state = {
   drafts: new Map<string, string>(),
   openComposer: null as string | null,
   collapsed: new Set<string>(),
-  reviewed: new Set<string>(),
   verdict: null as Verdict | null,
   globalComment: "",
   submitted: false,
@@ -173,7 +190,7 @@ function commentThreadHtml(blockId: string): string {
     parts.push(`
       <div class="gp-thread-comment" data-comment-for="${blockId}">
         <div class="gp-thread-comment-head">
-          <span class="cdr-avatar cdr-avatar--sm">${initials("You")}</span>
+          ${avatarHtml("You")}
           <span class="gp-thread-comment-author">You</span>
           <span class="gp-thread-comment-time">${relativeTime(comment.createdAt)}</span>
         </div>
@@ -215,6 +232,18 @@ function itemContentHtml(block: BlockDTO): string {
       return `<div class="gp-item-ol"><span class="gp-ordinal">${block.ordinal ?? ""}.</span><span>${block.html}</span></div>`;
     }
     return `<div class="gp-item-ul"><span class="gp-bullet">&bull;</span><span>${block.html}</span></div>`;
+  }
+  if (block.type === "fence") {
+    const langMatch = /language-([\w-]+)/.exec(block.html);
+    const lang = langMatch ? langMatch[1] : "text";
+    return `
+      <div class="gp-code" data-fence-for="${block.id}">
+        <div class="gp-code-head">
+          <span>${escapeText(lang)}</span>
+          <button type="button" class="gp-code-copy" data-action="copy-code" data-block-id="${block.id}">Copy</button>
+        </div>
+        ${block.html}
+      </div>`;
   }
   return block.html;
 }
@@ -260,7 +289,6 @@ function buildItemsHtml(items: BlockDTO[]): string {
 
 function buildSectionHtml(section: Section): string {
   const collapsed = state.collapsed.has(section.id);
-  const reviewed = state.reviewed.has(section.id);
   const commentTotal =
     (section.headingBlockId && state.pending.has(section.headingBlockId) ? 1 : 0) +
     section.items.filter((it) => state.pending.has(it.id)).length;
@@ -275,16 +303,9 @@ function buildSectionHtml(section: Section): string {
         <button type="button" class="gp-section-collapse" data-action="toggle-collapse" data-section-id="${section.id}" aria-label="Toggle section">
           ${iconSvg(collapsed ? "chevron-right" : "chevron-down")}
         </button>
-        <span class="gp-section-num">${section.num}</span>
         <span class="gp-section-title">${section.title}</span>
-        ${headingCommentBtn}
-        <span class="gp-section-spacer"></span>
         ${commentTotal > 0 ? `<span class="cdr-badge cdr-badge--accent">${commentTotal} comment${commentTotal === 1 ? "" : "s"}</span>` : ""}
-        <label class="cdr-choice">
-          <input type="checkbox" data-action="toggle-reviewed" data-section-id="${section.id}" ${reviewed ? "checked" : ""} />
-          <span class="cdr-box">${iconSvg("check", 13)}</span>
-          Reviewed
-        </label>
+        ${headingCommentBtn}
       </div>
       <div class="gp-section-body" data-section-body="${section.id}" ${collapsed ? 'style="display:none"' : ""}>
         ${section.headingBlockId ? `<div data-thread-for="${section.headingBlockId}">${commentThreadHtml(section.headingBlockId)}</div>` : ""}
@@ -306,7 +327,7 @@ function buildTopBarHtml(): string {
       <div class="gp-topbar-inner">
         <div class="gp-topbar-row">
           <div class="gp-topbar-heading">
-            <span class="gp-topbar-brand">/gigaplan</span>
+            <span class="gp-topbar-mark" aria-hidden="true">${iconSvg("message-square-check", 14)}</span>
             <h1 class="gp-topbar-title">${escapeText(currentPageTitle)}</h1>
           </div>
           <span class="cdr-badge cdr-badge--${status.tone} cdr-badge--dot">${status.label}</span>
@@ -315,7 +336,7 @@ function buildTopBarHtml(): string {
           </button>
         </div>
         <div class="gp-topbar-meta">
-          <span>${escapeText(currentPlanFilename())} &middot; <span class="gp-mono">${currentSections.length} section${currentSections.length === 1 ? "" : "s"}</span> &middot; <span class="gp-mono">${commentCount} comment${commentCount === 1 ? "" : "s"}</span></span>
+          <span>${escapeText(currentPlanFilename())} &middot; ${currentSections.length} section${currentSections.length === 1 ? "" : "s"} &middot; ${commentCount} comment${commentCount === 1 ? "" : "s"}</span>
         </div>
       </div>
     </div>`;
@@ -361,11 +382,7 @@ function collectAllComments(): AllCommentEntry[] {
 }
 
 function buildSidebarHtml(): string {
-  const reviewedCount = currentSections.filter((s) => state.reviewed.has(s.id)).length;
-  const total = currentSections.length;
-  const pct = total > 0 ? Math.round((reviewedCount / total) * 100) : 0;
   const allComments = collectAllComments();
-  const commentCount = state.pending.size + state.orphanedPending.size;
 
   const commentsHtml =
     allComments.length > 0
@@ -374,7 +391,7 @@ function buildSidebarHtml(): string {
             (c) => `
         <div class="gp-comment-row" data-action="jump-to-comment" data-block-id="${c.blockId}">
           <div class="gp-comment-row-head">
-            <span class="cdr-avatar cdr-avatar--sm">${initials("You")}</span>
+            ${avatarHtml("You")}
             <span class="gp-comment-row-author">You</span>
             <span class="gp-comment-row-time">${relativeTime(c.createdAt)}</span>
           </div>
@@ -383,23 +400,12 @@ function buildSidebarHtml(): string {
         </div>`
           )
           .join("")
-      : '<div class="gp-empty-comments">Comments you leave on the plan will show up here, so you can see review coverage at a glance.</div>';
+      : '<div class="gp-empty-comments">Comments you leave on the plan will show up here.</div>';
 
   return `
     <aside class="gp-sidebar">
-      <div class="cdr-card gp-coverage-card">
-        <div class="ds-eyebrow">// review coverage</div>
-        <div class="gp-coverage-numbers">
-          <span class="gp-coverage-count">${reviewedCount}</span>
-          <span class="gp-coverage-total">of ${total} sections reviewed</span>
-        </div>
-        <div class="gp-coverage-bar"><div class="gp-coverage-bar-fill" style="width:${pct}%"></div></div>
-        <div class="gp-coverage-footer">${commentCount} comment${commentCount === 1 ? "" : "s"} across the plan</div>
-      </div>
-      <div class="cdr-card">
-        <div class="gp-comments-card-head">All comments</div>
-        <div>${commentsHtml}</div>
-      </div>
+      <div class="gp-comments-card-head">Comments</div>
+      <div>${commentsHtml}</div>
     </aside>`;
 }
 
@@ -416,51 +422,43 @@ function buildFinishPanelHtml(): string {
     const verdictLabel = verdict === "approve" ? approveLabel : "Request changes";
     return `
       <div id="gp-finish-panel" class="gp-finish-panel">
-        <div class="cdr-card">
-          <div class="gp-finish-head">
-            <h2 class="gp-finish-title">Review submitted</h2>
-          </div>
-          <div class="gp-finish-body">
-            <div class="cdr-banner cdr-banner--success">
-              ${iconSvg("circle-check", 18)}
-              <div>
-                <div class="cdr-banner-title">Review submitted</div>
-                <div class="cdr-banner-body">Verdict: ${verdictLabel}. Revise the plan and reopen this session to review again.</div>
-              </div>
+        <h2 class="gp-finish-title">Review submitted</h2>
+        <div class="gp-finish-body">
+          <div class="cdr-banner cdr-banner--success">
+            ${iconSvg("circle-check", 18)}
+            <div>
+              <div class="cdr-banner-title">Review submitted</div>
+              <div class="cdr-banner-body">Verdict: ${verdictLabel}. Revise the plan and reopen this session to review again.</div>
             </div>
-            ${state.globalComment.trim() ? `<div class="gp-submitted-quote">&ldquo;<span></span>&rdquo;</div>` : ""}
           </div>
+          ${state.globalComment.trim() ? `<div class="gp-submitted-quote">&ldquo;<span></span>&rdquo;</div>` : ""}
         </div>
       </div>`;
   }
 
   return `
     <div id="gp-finish-panel" class="gp-finish-panel">
-      <div class="cdr-card">
-        <div class="gp-finish-head">
-          <h2 class="gp-finish-title">Finish your review</h2>
+      <h2 class="gp-finish-title">Finish your review</h2>
+      <div class="gp-finish-body">
+        <div>
+          <div class="gp-verdict-label">Your review</div>
+          <div class="gp-verdict-options">
+            <label class="cdr-choice">
+              <input type="radio" name="verdict" data-action="set-verdict" value="approve" ${verdict === "approve" ? "checked" : ""} />
+              <span class="cdr-box cdr-box--radio"></span>
+              <span data-role="approve-label">${approveLabel}</span>
+            </label>
+            <label class="cdr-choice ${requestChangesDisabled ? "cdr-choice--disabled" : ""}" data-role="request-changes-choice">
+              <input type="radio" name="verdict" data-action="set-verdict" value="request_changes" ${verdict === "request_changes" ? "checked" : ""} ${requestChangesDisabled ? "disabled" : ""} />
+              <span class="cdr-box cdr-box--radio"></span>
+              Request changes
+            </label>
+          </div>
+          <div class="gp-verdict-hint" data-role="verdict-hint" ${requestChangesDisabled ? "" : 'style="display:none"'}>Leave at least one comment — on a section heading, an item, or below — to request changes.</div>
         </div>
-        <div class="gp-finish-body">
-          <div>
-            <div class="gp-verdict-label">Your review</div>
-            <div class="gp-verdict-options">
-              <label class="cdr-choice">
-                <input type="radio" name="verdict" data-action="set-verdict" value="approve" ${verdict === "approve" ? "checked" : ""} />
-                <span class="cdr-box cdr-box--radio"></span>
-                <span data-role="approve-label">${approveLabel}</span>
-              </label>
-              <label class="cdr-choice ${requestChangesDisabled ? "cdr-choice--disabled" : ""}" data-role="request-changes-choice">
-                <input type="radio" name="verdict" data-action="set-verdict" value="request_changes" ${verdict === "request_changes" ? "checked" : ""} ${requestChangesDisabled ? "disabled" : ""} />
-                <span class="cdr-box cdr-box--radio"></span>
-                Request changes
-              </label>
-            </div>
-            <div class="gp-verdict-hint" data-role="verdict-hint" ${requestChangesDisabled ? "" : 'style="display:none"'}>Leave at least one comment — on a section heading, an item, or below — to request changes.</div>
-          </div>
-          <textarea class="cdr-textarea" data-role="global-draft" placeholder="Overall feedback for the agent…" rows="4"></textarea>
-          <div class="gp-finish-actions">
-            <button type="button" class="cdr-btn cdr-btn--lg" data-action="submit-review" ${cannotSubmit ? "disabled" : ""}>Submit review</button>
-          </div>
+        <textarea class="cdr-textarea" data-role="global-draft" placeholder="Overall feedback for the agent…" rows="4"></textarea>
+        <div class="gp-finish-actions">
+          <button type="button" class="cdr-btn cdr-btn--lg" data-action="submit-review" ${cannotSubmit ? "disabled" : ""}>Submit review</button>
         </div>
       </div>
     </div>`;
@@ -553,18 +551,6 @@ function toggleCollapse(sectionId: string): void {
   chevronBtn.innerHTML = iconSvg(nowCollapsed ? "chevron-right" : "chevron-down");
 }
 
-function toggleReviewed(sectionId: string): void {
-  const nowReviewed = !state.reviewed.has(sectionId);
-  if (nowReviewed) {
-    state.reviewed.add(sectionId);
-    state.collapsed.add(sectionId);
-  } else {
-    state.reviewed.delete(sectionId);
-    state.collapsed.delete(sectionId);
-  }
-  renderApp();
-}
-
 function jumpToComment(blockId: string): void {
   const section = currentSections.find((s) => s.headingBlockId === blockId || s.items.some((it) => it.id === blockId));
   if (section && state.collapsed.has(section.id)) {
@@ -611,6 +597,18 @@ function updateVerdictAvailability(): void {
 
   const submitBtn = appEl.querySelector<HTMLButtonElement>('[data-action="submit-review"]');
   if (submitBtn) submitBtn.disabled = !effectiveVerdict() || state.submitted;
+}
+
+function copyCode(button: HTMLElement, blockId: string): void {
+  const codeEl = appEl.querySelector<HTMLElement>(`[data-fence-for="${blockId}"] pre code`);
+  const text = codeEl?.textContent ?? "";
+  const original = button.textContent;
+  navigator.clipboard?.writeText(text).then(() => {
+    button.textContent = "Copied";
+    setTimeout(() => {
+      button.textContent = original ?? "Copy";
+    }, 1200);
+  }, () => {});
 }
 
 function toggleTheme(): void {
@@ -677,6 +675,9 @@ appEl.addEventListener("click", (e) => {
     case "toggle-theme":
       toggleTheme();
       break;
+    case "copy-code":
+      if (blockId) copyCode(target, blockId);
+      break;
     case "submit-review":
       submitReview().catch(() => {
         // Leaves the panel interactive so the reviewer can just try again.
@@ -688,9 +689,7 @@ appEl.addEventListener("click", (e) => {
 appEl.addEventListener("change", (e) => {
   const target = e.target as HTMLElement;
   const action = target.dataset.action;
-  if (action === "toggle-reviewed" && target.dataset.sectionId) {
-    toggleReviewed(target.dataset.sectionId);
-  } else if (action === "set-verdict" && target instanceof HTMLInputElement) {
+  if (action === "set-verdict" && target instanceof HTMLInputElement) {
     setVerdict(target.value as Verdict);
   }
 });
