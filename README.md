@@ -7,6 +7,9 @@ sections with per-step inline comments, a review-coverage sidebar, and a
 finish-your-review panel (Approve / Approve with comments / Request changes),
 then hands the structured feedback back to the agent to act on.
 
+[gigaplan on npm](https://www.npmjs.com/package/gigaplan) ·
+[gigaplan on skills.sh](https://www.skills.sh/corradodellorusso/gigaplan/gigaplan)
+
 The UI follows the "Atelier / Terminal" design system (warm-paper light theme,
 phosphor-terminal dark theme, Bricolage Grotesque + JetBrains Mono type) —
 see `skills/gigaplan/SKILL.md` for the review workflow and `public/chrome.css`
@@ -14,48 +17,39 @@ for the theme itself.
 
 ## Getting started
 
-gigaplan isn't published to npm yet, so for now it runs from a local checkout
-of this repo:
+No install needed — try it against any Markdown file:
 
 ```
-npm install        # also builds it — see the `prepare` script
-```
-
-Try it against any Markdown file:
-
-```
-node bin/gigaplan.js review path/to/plan.md
+npx -y gigaplan review path/to/plan.md
 ```
 
 That opens your browser straight to the review page. Leave a few comments,
 pick a verdict, and submit — then, in a second terminal:
 
 ```
-node bin/gigaplan.js poll path/to/plan.md
+npx -y gigaplan poll path/to/plan.md
 ```
 
 blocks until you do, then prints back exactly the compact-markdown feedback an
-agent would read. `gigaplan end path/to/plan.md` marks the session done
+agent would read. `npx -y gigaplan end path/to/plan.md` marks the session done
 afterward (the shared local server itself stays running independently — see
 Configuration below).
-
-Optionally, run `npm link` once if you'd rather type the bare `gigaplan`
-command than the `node bin/gigaplan.js` prefix.
 
 ### Installing the skill
 
 The point of gigaplan is for an *agent* — any agent, not tied to one product —
 to drive this loop on your behalf: write the plan, open it for you, wait for
 your review, and revise based on your comments, looping until you approve it.
-Install `skills/gigaplan/SKILL.md` via skills.sh so it's picked up
-automatically, without you needing to invoke anything by name.
+Install the skill so it's picked up automatically, without you needing to
+invoke anything by name:
+
+```
+npx skills add https://github.com/corradodellorusso/gigaplan --skill gigaplan
+```
+
 `skills/gigaplan/SKILL.md` documents the exact workflow and CLI contract an
 agent follows — read it if you want to know precisely what happens under the
 hood.
-
-Once gigaplan is published, `npx -y gigaplan ...` per command replaces the
-local-checkout commands above — no local build needed, matching what the
-skill already documents.
 
 ## How it works
 
@@ -85,9 +79,6 @@ gigaplan end <path>      Mark the review session done (the shared local server s
                          it shuts itself down after a period of inactivity).
 ```
 
-Locally (pre-publish), that's `node bin/gigaplan.js <command>` unless you've
-`npm link`-ed it (see Getting started).
-
 ## Configuration
 
 | Env var | Default | Purpose |
@@ -98,6 +89,13 @@ Locally (pre-publish), that's `node bin/gigaplan.js <command>` unless you've
 State (session records and the server's pid/port lock) lives in `~/.gigaplan/`.
 
 ## Contributing
+
+Working from a local checkout instead of the published package:
+
+```
+npm install        # also builds it — see the `prepare` script
+node bin/gigaplan.js review path/to/plan.md   # or `npm link` once, then plain `gigaplan ...`
+```
 
 ```
 npm run typecheck # tsc --noEmit against both the server and client TypeScript
