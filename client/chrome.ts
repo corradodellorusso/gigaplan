@@ -10,6 +10,7 @@ interface BlockDTO {
   listKind?: "bullet" | "ordered";
   ordinal?: number;
   checklist?: boolean;
+  language?: string;
 }
 
 interface StaleEntry {
@@ -55,8 +56,6 @@ interface Section {
 /* ---------------------------------------------------------- icons (inline, no CDN) */
 
 const ICON_PATHS: Record<string, string> = {
-  "chevron-down": '<path d="m6 9 6 6 6-6"/>',
-  "chevron-right": '<path d="m9 18 6-6-6-6"/>',
   "message-square":
     '<path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/>',
   "message-square-check":
@@ -166,7 +165,6 @@ const state = {
   },
   drafts: new Map<string, string>(),
   openComposer: null as string | null,
-  collapsed: new Set<string>(),
   verdict: null as Verdict | null,
   globalComment: "",
   submitted: false,
@@ -260,8 +258,7 @@ function itemContentHtml(block: BlockDTO): string {
     return `<div class="gp-item-ul"><span class="gp-bullet">&bull;</span><span>${block.html}</span></div>`;
   }
   if (block.type === "fence") {
-    const langMatch = /language-([\w-]+)/.exec(block.html);
-    const lang = langMatch ? langMatch[1] : "text";
+    const lang = block.language ?? "text";
     return `
       <div class="gp-code" data-fence-for="${block.id}">
         <div class="gp-code-head">
@@ -315,7 +312,6 @@ function buildItemsHtml(items: BlockDTO[]): string {
 /* ---------------------------------------------------------- sections */
 
 function buildSectionHtml(section: Section): string {
-  const collapsed = state.collapsed.has(section.id);
   const commentTotal =
     (section.headingBlockId && state.pending.has(section.headingBlockId) ? 1 : 0) +
     section.items.filter((it) => state.pending.has(it.id)).length;
@@ -329,15 +325,12 @@ function buildSectionHtml(section: Section): string {
   return `
     <div class="gp-section" data-section-id="${section.id}">
       <div class="gp-section-head${headingChangeClass}">
-        <button type="button" class="gp-section-collapse" data-action="toggle-collapse" data-section-id="${section.id}" aria-label="Toggle section">
-          ${iconSvg(collapsed ? "chevron-right" : "chevron-down")}
-        </button>
+        ${headingCommentBtn}
         <span class="gp-section-title">${section.title}</span>
         ${headingChangeBadge}
         ${commentTotal > 0 ? `<span class="cdr-badge cdr-badge--accent">${commentTotal} comment${commentTotal === 1 ? "" : "s"}</span>` : ""}
-        ${headingCommentBtn}
       </div>
-      <div class="gp-section-body" data-section-body="${section.id}" ${collapsed ? 'style="display:none"' : ""}>
+      <div class="gp-section-body">
         ${section.headingBlockId ? `<div data-thread-for="${section.headingBlockId}">${commentThreadHtml(section.headingBlockId)}</div>` : ""}
         ${buildItemsHtml(section.items)}
       </div>
@@ -581,23 +574,7 @@ function removeComment(blockId: string): void {
   renderApp();
 }
 
-function toggleCollapse(sectionId: string): void {
-  const body = appEl.querySelector<HTMLElement>(`[data-section-body="${sectionId}"]`);
-  const chevronBtn = appEl.querySelector<HTMLElement>(`[data-action="toggle-collapse"][data-section-id="${sectionId}"]`);
-  if (!body || !chevronBtn) return;
-  const nowCollapsed = !state.collapsed.has(sectionId);
-  if (nowCollapsed) state.collapsed.add(sectionId);
-  else state.collapsed.delete(sectionId);
-  body.style.display = nowCollapsed ? "none" : "";
-  chevronBtn.innerHTML = iconSvg(nowCollapsed ? "chevron-right" : "chevron-down");
-}
-
 function jumpToComment(blockId: string): void {
-  const section = currentSections.find((s) => s.headingBlockId === blockId || s.items.some((it) => it.id === blockId));
-  if (section && state.collapsed.has(section.id)) {
-    state.collapsed.delete(section.id);
-    renderApp();
-  }
   requestAnimationFrame(() => {
     document.getElementById(`gp-block-${blockId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
@@ -688,7 +665,6 @@ appEl.addEventListener("click", (e) => {
   if (!target) return;
   const action = target.dataset.action;
   const blockId = target.dataset.blockId;
-  const sectionId = target.dataset.sectionId;
 
   switch (action) {
     case "toggle-composer":
@@ -707,9 +683,6 @@ appEl.addEventListener("click", (e) => {
       break;
     case "remove-comment":
       if (blockId) removeComment(blockId);
-      break;
-    case "toggle-collapse":
-      if (sectionId) toggleCollapse(sectionId);
       break;
     case "jump-to-comment":
       if (blockId) jumpToComment(blockId);
@@ -781,6 +754,14 @@ async function fetchAndReconcile(): Promise<void> {
     added: new Set(data.sinceReview.added),
     removedCount: data.sinceReview.removedCount,
   };
+
+  if (state.submitted) {
+    // The plan changed after a review was already submitted against it — this
+    // is a new round to review, not a stale view of the one just submitted.
+    state.submitted = false;
+    state.verdict = null;
+    state.globalComment = "";
+  }
 
   state.blocks = data.blocks;
   renderApp();

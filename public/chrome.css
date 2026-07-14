@@ -82,6 +82,18 @@
   --shadow-md: 0 3px 6px rgba(15, 15, 15, 0.1), 0 1px 3px rgba(15, 15, 15, 0.08);
   --shadow-lg: 0 12px 28px rgba(15, 15, 15, 0.14), 0 2px 4px rgba(15, 15, 15, 0.08);
   --shadow-focus-ring: 0 0 0 2px rgba(35, 131, 226, 0.35);
+
+  /* Syntax token colors, seeded from the --avatar-1..6 hues (the app's only
+     other categorical palette) rather than an unrelated new set. */
+  --syntax-keyword: #7c4dc4;
+  --syntax-string: #1f8f4e;
+  --syntax-number: #c1650c;
+  --syntax-function: #0f74a8;
+  --syntax-attr: #0f7b6c;
+  --syntax-type: #a3176d;
+  --syntax-comment: var(--text-tertiary);
+  --syntax-addition: var(--status-success);
+  --syntax-deletion: var(--status-danger);
 }
 
 [data-theme="dark"] {
@@ -124,6 +136,18 @@
   --shadow-md: 0 3px 6px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.4);
   --shadow-focus-ring: 0 0 0 2px rgba(89, 169, 244, 0.4);
+
+  /* Same hues as the light theme's --syntax-* tokens, lightened for contrast
+     against --surface-code on a dark background. */
+  --syntax-keyword: #b98ae8;
+  --syntax-string: #5fce8c;
+  --syntax-number: #e6a256;
+  --syntax-function: #6ec3f2;
+  --syntax-attr: #3fcbb3;
+  --syntax-type: #e883b8;
+  --syntax-comment: var(--text-tertiary);
+  --syntax-addition: var(--status-success);
+  --syntax-deletion: var(--status-danger);
 }
 
 /* ---------------------------------------------------------- TYPE + SPACING + EFFECTS */
@@ -207,13 +231,24 @@ body {
 .cdr-iconbtn > span { display: inline-flex; }
 
 .gp-comment-btn {
+  /* Lives in the page's own left gutter (.gp-body's padding, --space-12),
+     outside the text column entirely, rather than as a trailing flex sibling
+     inside the row — so it never competes with reading the text itself. */
+  position: absolute; left: calc(-1 * var(--space-12) - var(--space-4)); top: var(--space-4);
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; flex-shrink: 0; border: none; border-radius: var(--radius-md);
   background: transparent; color: var(--text-tertiary); cursor: pointer;
-  opacity: 0.3;
+  opacity: 0;
   transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
 }
+.gp-section-head .gp-comment-btn { top: 50%; transform: translateY(-50%); }
+
+/* Three-stage reveal: invisible at rest, faintly visible once the line
+   itself is hovered, fully visible once the button itself is hovered/focused
+   (or it already carries state — an open composer or an existing comment). */
 .gp-commentable:hover .gp-comment-btn,
+.gp-section-head:hover .gp-comment-btn { opacity: 0.45; }
+.gp-comment-btn:hover,
 .gp-comment-btn:focus-visible,
 .gp-comment-btn--open,
 .gp-comment-btn--active { opacity: 1; }
@@ -337,18 +372,13 @@ body {
 /* ---- section heading (flat — a heading with a hover-reveal fold arrow,
    not a boxed card; sections are just `##` headings, not a formal division) ---- */
 .gp-section-head {
+  position: relative;
   display: flex; align-items: center; gap: var(--space-4); padding: var(--space-3) 0;
 }
-.gp-section-collapse {
-  background: none; border: none; cursor: pointer; color: var(--text-tertiary);
-  display: flex; align-items: center; padding: 0; flex-shrink: 0;
-  opacity: 0.35; transition: opacity var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+.gp-section-title {
+  flex: 1; min-width: 0;
+  font-family: var(--font-sans); font-weight: var(--weight-semibold); font-size: var(--heading-h2); letter-spacing: var(--tracking-tight); color: var(--text-primary); line-height: var(--leading-snug);
 }
-.gp-section-head:hover .gp-section-collapse,
-.gp-section-head:hover .gp-comment-btn { opacity: 1; }
-.gp-section-collapse:hover { color: var(--text-primary); }
-.gp-section-collapse svg { display: block; width: 15px; height: 15px; }
-.gp-section-title { font-family: var(--font-sans); font-weight: var(--weight-semibold); font-size: var(--heading-h2); letter-spacing: var(--tracking-tight); color: var(--text-primary); line-height: var(--leading-snug); }
 .gp-section-body { padding-top: var(--space-4); }
 
 /* ---- commentable rows ---- */
@@ -370,6 +400,7 @@ body {
 
 .gp-commentable-content code {
   font-family: var(--font-mono); background: var(--surface-code);
+  border: 1px solid var(--border-default);
   padding: 2px 5px; border-radius: var(--radius-sm); font-size: 0.85em;
 }
 .gp-commentable-content a { color: var(--accent); }
@@ -394,7 +425,29 @@ body {
   padding: var(--space-7) var(--space-8); overflow-x: auto;
   font-family: var(--font-mono); font-size: 13px; line-height: 1.6; color: var(--text-primary); white-space: pre;
 }
-.gp-commentable-content .gp-code pre code { background: none; padding: 0; border-radius: 0; font-size: 1em; }
+.gp-commentable-content .gp-code pre code { background: none; border: none; padding: 0; border-radius: 0; font-size: 1em; }
+
+/* ---- syntax token colors (highlight.js class names) ---- */
+.gp-code .hljs-comment, .gp-code .hljs-quote { color: var(--syntax-comment); font-style: italic; }
+.gp-code .hljs-keyword, .gp-code .hljs-selector-tag, .gp-code .hljs-meta-keyword, .gp-code .hljs-doctag {
+  color: var(--syntax-keyword); font-weight: var(--weight-medium);
+}
+.gp-code .hljs-string, .gp-code .hljs-regexp, .gp-code .hljs-symbol, .gp-code .hljs-template-string, .gp-code .hljs-meta-string {
+  color: var(--syntax-string);
+}
+.gp-code .hljs-number, .gp-code .hljs-literal { color: var(--syntax-number); }
+.gp-code .hljs-title, .gp-code .hljs-section, .gp-code .hljs-selector-id { color: var(--syntax-function); }
+.gp-code .hljs-attr, .gp-code .hljs-attribute, .gp-code .hljs-params, .gp-code .hljs-variable,
+.gp-code .hljs-template-variable, .gp-code .hljs-selector-attr, .gp-code .hljs-selector-class, .gp-code .hljs-selector-pseudo {
+  color: var(--syntax-attr);
+}
+.gp-code .hljs-type, .gp-code .hljs-built_in, .gp-code .hljs-class, .gp-code .hljs-builtin-name, .gp-code .hljs-title.class_ {
+  color: var(--syntax-type);
+}
+.gp-code .hljs-addition { color: var(--syntax-addition); }
+.gp-code .hljs-deletion { color: var(--syntax-deletion); }
+.gp-code .hljs-emphasis { font-style: italic; }
+.gp-code .hljs-strong { font-weight: var(--weight-semibold); }
 
 .gp-commentable-content table { border-collapse: collapse; display: block; overflow-x: auto; width: max-content; max-width: 100%; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
 .gp-commentable-content th, .gp-commentable-content td { border: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6); font-size: var(--text-sm); }

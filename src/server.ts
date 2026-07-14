@@ -74,12 +74,17 @@ export function createApp() {
     }
 
     sessionStore.createOrReopenSession(planPath);
+    const alreadyOpened = sessionStore.markBrowserOpened(planPath);
     const source = fs.readFileSync(planPath, "utf8");
     reviewStore.setBlocks(planPath, parseBlocks(source));
     watchPlan(planPath);
 
     const sessionKey = encodeURIComponent(planPath);
-    res.json({ sessionKey: planPath, url: `http://127.0.0.1:${PORT}/session/${sessionKey}` });
+    res.json({
+      sessionKey: planPath,
+      url: `http://127.0.0.1:${PORT}/session/${sessionKey}`,
+      alreadyOpened,
+    });
   });
 
   app.get("/session/:key", (req, res) => {
@@ -159,6 +164,13 @@ export function createApp() {
       return;
     }
     res.json({ ok: true });
+  });
+
+  app.post("/api/shutdown", (_req, res) => {
+    res.json({ ok: true });
+    // Let the response flush to the client before tearing the process down,
+    // rather than exiting from inside the request handler itself.
+    setImmediate(onIdleTimeout);
   });
 
   return app;

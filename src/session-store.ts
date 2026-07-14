@@ -43,10 +43,24 @@ export function createOrReopenSession(planPath: string): SessionRecord {
     ended: false,
     reopenable: true,
     lastPolledReviewId: 0,
+    browserOpened: false,
   };
   state.sessions[planPath] = record;
   writeState(state);
   return record;
+}
+
+/** Marks a session's browser tab as opened, returning whether it was already
+ * marked opened before this call (i.e. whether the caller should skip
+ * actually opening another tab). */
+export function markBrowserOpened(planPath: string): boolean {
+  const state = readState();
+  const existing = state.sessions[planPath];
+  if (!existing) return false;
+  const alreadyOpened = existing.browserOpened === true;
+  existing.browserOpened = true;
+  writeState(state);
+  return alreadyOpened;
 }
 
 export function endSession(planPath: string): SessionRecord | undefined {
@@ -67,7 +81,7 @@ export function bumpLastPolledReviewId(planPath: string, reviewId: number): void
   writeState(state);
 }
 
-function isProcessAlive(pid: number): boolean {
+export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;

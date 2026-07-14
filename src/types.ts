@@ -25,6 +25,9 @@ export interface Block {
   ordinal?: number;
   /** True when the item used GFM task-list syntax (`- [ ] ...` / `- [x] ...`). */
   checklist?: boolean;
+  /** Set on `fence` blocks with a language tag (lowercased first word of the
+   * fence info string), e.g. "js" for ` ```js `. Unset for untagged fences. */
+  language?: string;
 }
 
 export interface EnrichedComment {
@@ -71,6 +74,10 @@ export interface SessionRecord {
   reopenable: boolean;
   /** Highest reviewId the CLI's `poll` command has already returned to the agent. */
   lastPolledReviewId: number;
+  /** True once `gigaplan review` has actually opened a browser tab for this
+   * session at least once — later `review` calls for the same path skip
+   * opening another tab and rely on the existing one's own live-reload. */
+  browserOpened: boolean;
 }
 
 export interface ServerLock {

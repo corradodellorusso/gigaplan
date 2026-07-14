@@ -33,17 +33,6 @@ test("topbar meta reports section and comment counts", async () => {
   assert.match(meta, /0 comments/);
 });
 
-test("section collapse toggle hides and restores the section body", async () => {
-  const sectionId = await session.page.locator(".gp-section").first().getAttribute("data-section-id");
-  const body = session.page.locator(`[data-section-body="${sectionId}"]`);
-  const toggle = session.page.locator(`[data-action="toggle-collapse"][data-section-id="${sectionId}"]`);
-
-  await assert.doesNotReject(body.waitFor({ state: "visible" }));
-  await toggle.click();
-  await body.waitFor({ state: "hidden" });
-  await toggle.click();
-  await body.waitFor({ state: "visible" });
-});
 
 test("code fence copy button flips to Copied and reverts", async () => {
   const copyBtn = session.page.locator('[data-action="copy-code"]').first();

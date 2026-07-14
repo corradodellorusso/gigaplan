@@ -1,12 +1,12 @@
 ---
 name: gigaplan
-description: Turn an implementation plan, design doc, or multi-step technical proposal into a browser-based review page instead of pasting it into chat as prose or asking the user to read it in the terminal — numbered collapsible sections, per-step inline comments, a review-coverage sidebar, and a finish-your-review panel that returns a structured verdict (approve / approve with comments / request changes) via CLI polling, so the plan can be revised and re-reviewed in a loop until approved. Use this whenever about to hand a plan back for review — finishing plan-mode output, proposing a migration or refactor, or any change with more than a couple of steps — even if the user never asked for a "review tool" by name. Always write the plan as plain Markdown first, never HTML; gigaplan does all the rendering and theming itself.
+description: Turn an implementation plan, design doc, or multi-step technical proposal into a browser-based review page instead of pasting it into chat as prose or asking the user to read it in the terminal — numbered sections, per-step inline comments, a review-coverage sidebar, and a finish-your-review panel that returns a structured verdict (approve / approve with comments / request changes) via CLI polling, so the plan can be revised and re-reviewed in a loop until approved. Use this whenever about to hand a plan back for review — finishing plan-mode output, proposing a migration or refactor, or any change with more than a couple of steps — even if the user never asked for a "review tool" by name. Always write the plan as plain Markdown first, never HTML; gigaplan does all the rendering and theming itself.
 user-invocable: true
 ---
 
 gigaplan is a local, single-purpose review tool: it takes a plan written in plain
 Markdown and opens it in the user's browser as a themed review page — each `##`
-section gets a number, a collapse toggle, and a "Reviewed" checkbox; every
+section gets a number; every
 paragraph, list item, code fence, and heading is individually commentable; a
 sidebar tracks review coverage and lists every comment left so far; and a
 "Finish your review" panel collects an overall comment plus a verdict (Approve /
@@ -29,9 +29,13 @@ the project has instead — gigaplan only knows how to render and review plans.
    code fence, and table; a plan that's one giant paragraph gives the reviewer
    nothing specific to comment on.
 2. **Open it for review:** run `npx -y gigaplan review <path-to-plan.md>`. This
-   opens (or reuses) a browser tab. Tell the user in one short sentence that the
-   plan is open for review in their browser — do not restate the plan's content
-   in chat; the browser page is the plan.
+   opens a browser tab the first time, then on every later call for the same
+   path just live-reloads that same tab instead (see "Commands & rules" below)
+   — so tell the user in one short sentence that the plan is open (or updated)
+   for review, and always include the printed URL, every round, not just the
+   first — it's the only way back in if they've lost or closed the tab, since
+   gigaplan won't open a new one for them. Do not restate the plan's content in
+   chat; the browser page is the plan.
 3. **Wait for the review:** run `npx -y gigaplan poll <path-to-plan.md>`. This
    blocks until the user submits a review. Just call it and wait; don't do other
    work in the meantime.
@@ -60,8 +64,11 @@ path means a new, unrelated session.
 ## Commands & rules
 
 ```
-gigaplan review <path>   Open (or reuse) the browser review session for this plan file.
-                         Prints "Opened for review: <url>" on success.
+gigaplan review <path>   Open the browser review session for this plan file, or push a
+                         live-reload to the tab already opened for it. Always prints the
+                         session URL: "Opened for review: <url>" the first time for a given
+                         path, "Review session updated (already open in your browser): <url>"
+                         on every call after that — always relay this URL to the user.
 
 gigaplan poll <path>     Block until a review is submitted; print it as compact markdown:
 

@@ -14,6 +14,7 @@ const {
   getSession,
   endSession,
   bumpLastPolledReviewId,
+  markBrowserOpened,
   readServerLock,
   writeServerLock,
   clearServerLock,
@@ -36,6 +37,22 @@ test("createOrReopenSession is idempotent and reopens an ended session", () => {
 
   const reopened = createOrReopenSession(planPath);
   assert.equal(reopened.ended, false);
+});
+
+test("markBrowserOpened reports false only the first time, then true on every later call", () => {
+  const planPath = "/tmp/plan-d.md";
+  createOrReopenSession(planPath);
+  assert.equal(getSession(planPath)?.browserOpened, false);
+
+  assert.equal(markBrowserOpened(planPath), false);
+  assert.equal(getSession(planPath)?.browserOpened, true);
+  assert.equal(markBrowserOpened(planPath), true);
+
+  // Ending and reopening the session (e.g. a later `gigaplan review` call
+  // after `end`) must not forget that a tab was already opened for it.
+  endSession(planPath);
+  createOrReopenSession(planPath);
+  assert.equal(markBrowserOpened(planPath), true);
 });
 
 test("bumpLastPolledReviewId persists the review id", () => {

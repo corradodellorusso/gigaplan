@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 gigaplan renders an agent-authored Markdown plan as a themed review page in the
 user's browser — the "Atelier / Terminal" design system (`public/chrome.css`):
-each `##` heading becomes a numbered, collapsible section; every
+each `##` heading becomes a numbered section; every
 heading/paragraph/list-item/fence/table is individually commentable; a sidebar
 tracks review coverage and lists every comment; a "Finish your review" panel
 collects an overall comment plus a verdict (Approve / Request changes). Hands
@@ -95,7 +95,7 @@ settings:
    server doesn't know about: `buildSections()` walks the flat `Block[]` and
    starts a new section at every `headingLevel === 2` block (the first `h1`,
    if any, becomes the page title instead of a section). The few functional
-   icons (chevron collapse, comment bubble, theme sun/moon, checkbox tick,
+   icons (comment bubble, theme sun/moon, checkbox tick,
    success banner check) are inlined SVGs copied from Lucide's path data
    (`ICON_PATHS`) — no icon library dependency, matching the "no CDN JS"
    principle (Google Fonts is the one exception, see README's Development

@@ -5,7 +5,13 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import open from "open";
 import { canonicalPlanPath, PORT, LONG_POLL_TIMEOUT_MS } from "./paths.js";
-import { readServerLock, getSession, bumpLastPolledReviewId } from "./session-store.js";
+import {
+  readServerLock,
+  getSession,
+  bumpLastPolledReviewId,
+  isProcessAlive,
+  clearServerLock,
+} from "./session-store.js";
 import type { Review } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -19,6 +25,7 @@ function printUsage(): void {
       "  review <path>   Open (or reuse) the browser review session for this plan file",
       "  poll <path>     Block until a review is submitted; print it as compact markdown",
       "  end <path>      Mark the review session done",
+      "  stop            Stop the shared local gigaplan server, if one is running",
     ].join("\n")
   );
 }
@@ -101,14 +108,23 @@ async function cmdReview(rawPath: string | undefined): Promise<void> {
   }
 
   await ensureServerRunning();
-  const { status, body } = await requestJson<{ sessionKey: string; url: string; error?: string }>(
-    "POST",
-    "/api/sessions",
-    { planPath }
-  );
+  const { status, body } = await requestJson<{
+    sessionKey: string;
+    url: string;
+    alreadyOpened?: boolean;
+    error?: string;
+  }>("POST", "/api/sessions", { planPath });
   if (status !== 200) {
     console.error(`gigaplan review: ${body.error ?? "failed to create session"}`);
     process.exitCode = 1;
+    return;
+  }
+
+  if (body.alreadyOpened) {
+    // A tab for this session was already opened at some point; the plan file
+    // watcher + SSE live-reload will push the latest content to it directly,
+    // so opening another tab here would just leave a stale duplicate behind.
+    console.log(`Review session updated (already open in your browser): ${body.url}`);
     return;
   }
   await open(body.url);
@@ -191,6 +207,32 @@ async function cmdEnd(rawPath: string | undefined): Promise<void> {
   console.log(`Review session ended for ${planPath}`);
 }
 
+async function cmdStop(): Promise<void> {
+  const lock = readServerLock();
+  if (!lock) {
+    console.log("gigaplan stop: no server is running");
+    return;
+  }
+
+  try {
+    await requestJson("POST", "/api/shutdown", {}, 3000);
+  } catch {
+    // The server may tear down its connection mid-response as it exits;
+    // that's expected. Fall through and confirm it's actually gone below.
+  }
+
+  const deadline = Date.now() + 3000;
+  while (isProcessAlive(lock.pid) && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  if (isProcessAlive(lock.pid)) {
+    // The graceful path didn't take (e.g. a wedged event loop); force it.
+    process.kill(lock.pid, "SIGTERM");
+    clearServerLock();
+  }
+  console.log(`Stopped gigaplan server (pid ${lock.pid}).`);
+}
+
 export function main(): void {
   const [, , command, arg] = process.argv;
   const run = async (): Promise<void> => {
@@ -203,6 +245,9 @@ export function main(): void {
         break;
       case "end":
         await cmdEnd(arg);
+        break;
+      case "stop":
+        await cmdStop();
         break;
       default:
         printUsage();

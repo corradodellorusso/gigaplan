@@ -229,6 +229,27 @@ test("diffSinceSnapshot counts a deleted block without naming a current id for i
   assert.deepEqual(diff.added, []);
 });
 
+test("parseBlocks highlights a recognized-language fence and records its language", () => {
+  const blocks = parseBlocks('```js\nconst x = 1; // comment\n```\n');
+  const fence = blocks.find((b) => b.type === "fence");
+  assert.equal(fence?.language, "js");
+  assert.match(fence!.html, /hljs-/);
+});
+
+test("parseBlocks records an unrecognized language without highlighting", () => {
+  const blocks = parseBlocks('```mermaid\ngraph TD; A-->B;\n```\n');
+  const fence = blocks.find((b) => b.type === "fence");
+  assert.equal(fence?.language, "mermaid");
+  assert.doesNotMatch(fence!.html, /hljs-/);
+});
+
+test("parseBlocks leaves language undefined for an untagged fence", () => {
+  const blocks = parseBlocks('```\nplain text, no language tag\n```\n');
+  const fence = blocks.find((b) => b.type === "fence");
+  assert.equal(fence?.language, undefined);
+  assert.doesNotMatch(fence!.html, /hljs-/);
+});
+
 test("diffSinceSnapshot returns nothing to highlight when snapshot equals current across an id reset", () => {
   const source = "# Title\n\n## Step\n\nSome content.\n";
   const snapshot = parseBlocks(source);

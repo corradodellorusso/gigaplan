@@ -1,8 +1,18 @@
 import * as crypto from "node:crypto";
 import MarkdownIt from "markdown-it";
+import hljs from "highlight.js";
 import type { Block, ReconcileResult, SinceReviewDiff } from "./types.js";
 
-const md = new MarkdownIt({ html: false, linkify: true });
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  highlight(code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+    }
+    return "";
+  },
+});
 
 // Avoids depending on markdown-it's internal `lib/token` subpath export (an ESM-only
 // path that classic Node module resolution can't type-resolve); derived structurally
@@ -147,6 +157,8 @@ export function parseBlocks(source: string): Block[] {
 
     const first = group[0];
     const headingLevel = first.type === "heading_open" ? HEADING_TAG_LEVEL[first.tag] : undefined;
+    const language =
+      type === "fence" && first.info ? first.info.trim().split(/\s+/)[0].toLowerCase() : undefined;
 
     if (headingLevel !== undefined) {
       while (
@@ -169,6 +181,7 @@ export function parseBlocks(source: string): Block[] {
       html,
       excerpt: excerptOf(text),
       ...(headingLevel !== undefined ? { headingLevel } : {}),
+      ...(language !== undefined ? { language } : {}),
     });
 
     if (headingLevel !== undefined) {

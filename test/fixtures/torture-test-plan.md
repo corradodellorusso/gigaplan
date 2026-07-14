@@ -107,6 +107,16 @@ A fence with a language tag that has unusual characters:
 export const Widget = () => <div className="a && b">{'</script>'}</div>;
 ```
 
+A fence in a language `highlight.js` recognizes, with a mix of token kinds
+(keyword, string, comment, number) to check syntax highlighting:
+
+```python
+# a comment
+def greet(name):
+    count = 3
+    return f"hello {name}" * count
+```
+
 ## 06 · Tables torture test
 
 A wide table with many columns:
