@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import type { Block } from "./types.js";
+import type { Block, SinceReviewDiff } from "./types.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -22,9 +22,14 @@ function planTitle(planPath: string, blocks: Block[]): string {
   return path.basename(planPath);
 }
 
-export function renderSessionPage(sessionKey: string, planPath: string, blocks: Block[]): string {
+export function renderSessionPage(
+  sessionKey: string,
+  planPath: string,
+  blocks: Block[],
+  sinceReview: SinceReviewDiff
+): string {
   const title = escapeHtml(planTitle(planPath, blocks));
-  const initialData = embedJson({ sessionKey, planPath, blocks });
+  const initialData = embedJson({ sessionKey, planPath, blocks, sinceReview });
 
   // client/chrome.ts builds the entire visible page (top bar, sections, sidebar,
   // finish panel) from the JSON island below — this shell only supplies the

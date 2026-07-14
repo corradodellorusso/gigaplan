@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 import MarkdownIt from "markdown-it";
-import type { Block, ReconcileResult } from "./types.js";
+import type { Block, ReconcileResult, SinceReviewDiff } from "./types.js";
 
 const md = new MarkdownIt({ html: false, linkify: true });
 
@@ -233,4 +233,27 @@ export function reconcileBlocks(oldBlocks: Block[], freshBlocks: Block[]): Recon
   }));
 
   return { blocks: result, stale, orphaned };
+}
+
+// `POST /api/sessions` re-parses and re-numbers blocks from b1 on every
+// `gigaplan review` call (see server.ts), so ids from a previous submitted
+// review never survive into a later request. This can't compare by id like
+// the live-edit `stale`/`orphaned` tracking does — it re-runs the same
+// hash/positional matching reconcileBlocks uses, against the review-time
+// snapshot, purely by content, and reads the *current* run's ids off
+// `current` (positionally aligned with `merged`) rather than trusting
+// whatever id ended up attached during matching.
+export function diffSinceSnapshot(snapshot: Block[], current: Block[]): SinceReviewDiff {
+  const { blocks: merged, stale, orphaned } = reconcileBlocks(snapshot, current);
+  const snapshotIds = new Set(snapshot.map((b) => b.id));
+  const staleIds = new Set(stale.map((s) => s.id));
+
+  const updated: string[] = [];
+  const added: string[] = [];
+  merged.forEach((mergedBlock, index) => {
+    if (staleIds.has(mergedBlock.id)) updated.push(current[index].id);
+    else if (!snapshotIds.has(mergedBlock.id)) added.push(current[index].id);
+  });
+
+  return { updated, added, removedCount: orphaned.length };
 }

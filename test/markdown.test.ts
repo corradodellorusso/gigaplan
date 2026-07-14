@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseBlocks, reconcileBlocks } from "../src/markdown.js";
+import { parseBlocks, reconcileBlocks, diffSinceSnapshot } from "../src/markdown.js";
 
 const SAMPLE = `# Plan Title
 
@@ -173,4 +173,69 @@ test("reconcileBlocks assigns fresh, non-colliding ids to inserted blocks", () =
 
   const existingIds = new Set(oldBlocks.map((b) => b.id));
   assert.ok(!existingIds.has(newBlock!.id));
+});
+
+// `gigaplan review` re-parses the file from scratch on every invocation (see
+// server.ts's POST /api/sessions), so `current` here is deliberately an
+// independent `parseBlocks` call rather than something derived from
+// `snapshot` via `reconcileBlocks` — ids are not expected to line up between
+// the two, only content hashes/positions are.
+test("diffSinceSnapshot reports no changes when content is identical, even with fresh ids", () => {
+  const source = "# Title\n\nUnchanged paragraph.\n";
+  const snapshot = parseBlocks(source);
+  const current = parseBlocks(source);
+
+  const diff = diffSinceSnapshot(snapshot, current);
+  assert.deepEqual(diff, { updated: [], added: [], removedCount: 0 });
+});
+
+test("diffSinceSnapshot flags an edited block as updated, using the current run's id", () => {
+  const before = "# Title\n\nStep 3: run the old command.\n";
+  const after = "# Title\n\nStep 3: run the NEW command instead.\n";
+
+  const snapshot = parseBlocks(before);
+  const current = parseBlocks(after);
+
+  const diff = diffSinceSnapshot(snapshot, current);
+  assert.deepEqual(diff.updated, [current[1].id]);
+  assert.deepEqual(diff.added, []);
+  assert.equal(diff.removedCount, 0);
+});
+
+test("diffSinceSnapshot flags an inserted block as added, using the current run's id", () => {
+  const before = "# Title\n\nOnly paragraph.\n";
+  const after = "# Title\n\nOnly paragraph.\n\nBrand new paragraph.\n";
+
+  const snapshot = parseBlocks(before);
+  const current = parseBlocks(after);
+  const newBlock = current.find((b) => b.excerpt.includes("Brand new paragraph"));
+
+  const diff = diffSinceSnapshot(snapshot, current);
+  assert.deepEqual(diff.added, [newBlock!.id]);
+  assert.deepEqual(diff.updated, []);
+  assert.equal(diff.removedCount, 0);
+});
+
+test("diffSinceSnapshot counts a deleted block without naming a current id for it", () => {
+  const before = "# Title\n\nKeep me.\n\nDelete me.\n";
+  const after = "# Title\n\nKeep me.\n";
+
+  const snapshot = parseBlocks(before);
+  const current = parseBlocks(after);
+
+  const diff = diffSinceSnapshot(snapshot, current);
+  assert.equal(diff.removedCount, 1);
+  assert.deepEqual(diff.updated, []);
+  assert.deepEqual(diff.added, []);
+});
+
+test("diffSinceSnapshot returns nothing to highlight when snapshot equals current across an id reset", () => {
+  const source = "# Title\n\n## Step\n\nSome content.\n";
+  const snapshot = parseBlocks(source);
+  // Simulate a second, unrelated file save producing a structurally identical
+  // parse (fresh ids again) — should still net out to no changes.
+  const current = parseBlocks(source + "\n");
+
+  const diff = diffSinceSnapshot(snapshot, current);
+  assert.deepEqual(diff, { updated: [], added: [], removedCount: 0 });
 });

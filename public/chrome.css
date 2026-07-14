@@ -406,6 +406,13 @@ body {
 [data-theme="dark"] .gp-commentable-content blockquote { border-left-color: var(--gray-0, #fff); }
 .gp-hr { border: 0; border-top: 1px solid var(--border-subtle); margin: var(--space-2) 0; }
 
+/* ---- change highlights (since your last submitted review) ---- */
+.gp-changed-updated, .gp-changed-new {
+  padding-left: var(--space-5); margin-left: calc(-1 * var(--space-5) - 3px);
+}
+.gp-changed-updated { border-left: 3px solid var(--status-warning); }
+.gp-changed-new { border-left: 3px solid var(--status-success); }
+
 /* ---- comment thread + composer ---- */
 .gp-thread-comment {
   margin: var(--space-5) 0; padding: var(--space-6) var(--space-7); background: var(--surface-hover);
@@ -433,6 +440,7 @@ body {
   position: sticky; top: 104px; display: flex; flex-direction: column;
   border-left: 1px solid var(--border-subtle); padding-left: var(--space-10);
 }
+.gp-change-summary { font-size: var(--text-xs); color: var(--text-tertiary); padding-bottom: var(--space-6); }
 .gp-comments-card-head { font-family: var(--font-sans); font-weight: var(--weight-semibold); font-size: var(--text-sm); color: var(--text-primary); padding-bottom: var(--space-4); }
 .gp-comment-row {
   cursor: pointer; padding: var(--space-4) var(--space-4); margin: 0 calc(-1 * var(--space-4));

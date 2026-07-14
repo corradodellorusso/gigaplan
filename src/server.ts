@@ -92,7 +92,8 @@ export function createApp() {
       return;
     }
     const blocks = reviewStore.getBlocks(planPath);
-    res.type("html").send(renderSessionPage(planPath, planPath, blocks));
+    const sinceReview = reviewStore.getSinceReviewDiff(planPath);
+    res.type("html").send(renderSessionPage(planPath, planPath, blocks, sinceReview));
   });
 
   app.get("/api/sessions/:key/blocks", (req, res) => {
@@ -106,6 +107,7 @@ export function createApp() {
         previousExcerpt,
       })),
       orphaned: recon.orphaned,
+      sinceReview: reviewStore.getSinceReviewDiff(planPath),
     });
   });
 

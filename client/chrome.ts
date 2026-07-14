@@ -23,10 +23,17 @@ interface OrphanedEntry {
   headingBreadcrumb: string[];
 }
 
+interface SinceReviewDiffDTO {
+  updated: string[];
+  added: string[];
+  removedCount: number;
+}
+
 interface InitialData {
   sessionKey: string;
   planPath: string;
   blocks: BlockDTO[];
+  sinceReview: SinceReviewDiffDTO;
 }
 
 type Verdict = "approve" | "request_changes";
@@ -152,6 +159,11 @@ const state = {
   pending: new Map<string, PendingComment>(),
   orphanedPending: new Map<string, PendingComment>(),
   staleIds: new Set<string>(),
+  sinceReview: {
+    updated: new Set<string>(initial.sinceReview?.updated ?? []),
+    added: new Set<string>(initial.sinceReview?.added ?? []),
+    removedCount: initial.sinceReview?.removedCount ?? 0,
+  },
   drafts: new Map<string, string>(),
   openComposer: null as string | null,
   collapsed: new Set<string>(),
@@ -214,6 +226,20 @@ function commentThreadHtml(blockId: string): string {
   return parts.join("");
 }
 
+/* ---------------------------------------------------------- since-last-review highlight */
+
+function changeClassFor(blockId: string): string {
+  if (state.sinceReview.added.has(blockId)) return " gp-changed-new";
+  if (state.sinceReview.updated.has(blockId)) return " gp-changed-updated";
+  return "";
+}
+
+function changeBadgeHtml(blockId: string): string {
+  if (state.sinceReview.added.has(blockId)) return '<span class="cdr-badge cdr-badge--success">New</span>';
+  if (state.sinceReview.updated.has(blockId)) return '<span class="cdr-badge cdr-badge--warning">Updated</span>';
+  return "";
+}
+
 function commentButtonClasses(blockId: string): string {
   const classes = ["gp-comment-btn"];
   if (state.openComposer === blockId) classes.push("gp-comment-btn--open");
@@ -250,9 +276,10 @@ function itemContentHtml(block: BlockDTO): string {
 
 function buildCommentableRow(block: BlockDTO): string {
   return `
-    <div class="gp-commentable" id="gp-block-${block.id}" data-block-id="${block.id}">
+    <div class="gp-commentable${changeClassFor(block.id)}" id="gp-block-${block.id}" data-block-id="${block.id}">
       <div class="gp-commentable-row">
         <div class="gp-commentable-content">${itemContentHtml(block)}</div>
+        ${changeBadgeHtml(block.id)}
         <button type="button" class="${commentButtonClasses(block.id)}" data-action="toggle-composer" data-block-id="${block.id}" aria-label="Comment on this">
           ${iconSvg("message-square", 14)}
         </button>
@@ -296,14 +323,17 @@ function buildSectionHtml(section: Section): string {
   const headingCommentBtn = section.headingBlockId
     ? `<button type="button" class="${commentButtonClasses(section.headingBlockId)}" data-action="toggle-composer" data-block-id="${section.headingBlockId}" aria-label="Comment on heading">${iconSvg("message-square", 14)}</button>`
     : "";
+  const headingChangeClass = section.headingBlockId ? changeClassFor(section.headingBlockId) : "";
+  const headingChangeBadge = section.headingBlockId ? changeBadgeHtml(section.headingBlockId) : "";
 
   return `
     <div class="gp-section" data-section-id="${section.id}">
-      <div class="gp-section-head">
+      <div class="gp-section-head${headingChangeClass}">
         <button type="button" class="gp-section-collapse" data-action="toggle-collapse" data-section-id="${section.id}" aria-label="Toggle section">
           ${iconSvg(collapsed ? "chevron-right" : "chevron-down")}
         </button>
         <span class="gp-section-title">${section.title}</span>
+        ${headingChangeBadge}
         ${commentTotal > 0 ? `<span class="cdr-badge cdr-badge--accent">${commentTotal} comment${commentTotal === 1 ? "" : "s"}</span>` : ""}
         ${headingCommentBtn}
       </div>
@@ -381,6 +411,16 @@ function collectAllComments(): AllCommentEntry[] {
   return entries.sort((a, b) => a.createdAt - b.createdAt);
 }
 
+function changeSummaryHtml(): string {
+  const { updated, added, removedCount } = state.sinceReview;
+  const parts: string[] = [];
+  if (added.size) parts.push(`${added.size} new`);
+  if (updated.size) parts.push(`${updated.size} updated`);
+  if (removedCount) parts.push(`${removedCount} removed`);
+  if (parts.length === 0) return "";
+  return `<div class="gp-change-summary">${parts.join(" &middot; ")} since your last review</div>`;
+}
+
 function buildSidebarHtml(): string {
   const allComments = collectAllComments();
 
@@ -404,6 +444,7 @@ function buildSidebarHtml(): string {
 
   return `
     <aside class="gp-sidebar">
+      ${changeSummaryHtml()}
       <div class="gp-comments-card-head">Comments</div>
       <div>${commentsHtml}</div>
     </aside>`;
@@ -636,6 +677,7 @@ async function submitReview(): Promise<void> {
   });
   if (!res.ok) return;
   state.submitted = true;
+  state.sinceReview = { updated: new Set(), added: new Set(), removedCount: 0 };
   renderApp();
 }
 
@@ -709,7 +751,12 @@ appEl.addEventListener("input", (e) => {
 async function fetchAndReconcile(): Promise<void> {
   const res = await fetch(apiUrl("/blocks"));
   if (!res.ok) return;
-  const data = (await res.json()) as { blocks: BlockDTO[]; stale: StaleEntry[]; orphaned: OrphanedEntry[] };
+  const data = (await res.json()) as {
+    blocks: BlockDTO[];
+    stale: StaleEntry[];
+    orphaned: OrphanedEntry[];
+    sinceReview: SinceReviewDiffDTO;
+  };
 
   const newIds = new Set(data.blocks.map((b) => b.id));
   for (const [id, comment] of Array.from(state.pending.entries())) {
@@ -728,6 +775,12 @@ async function fetchAndReconcile(): Promise<void> {
 
   state.staleIds.clear();
   for (const s of data.stale) state.staleIds.add(s.id);
+
+  state.sinceReview = {
+    updated: new Set(data.sinceReview.updated),
+    added: new Set(data.sinceReview.added),
+    removedCount: data.sinceReview.removedCount,
+  };
 
   state.blocks = data.blocks;
   renderApp();

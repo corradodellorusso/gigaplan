@@ -1,4 +1,13 @@
-import type { Block, EnrichedComment, ReconcileResult, Review, SubmittedComment, Verdict } from "./types.js";
+import { diffSinceSnapshot } from "./markdown.js";
+import type {
+  Block,
+  EnrichedComment,
+  ReconcileResult,
+  Review,
+  SinceReviewDiff,
+  SubmittedComment,
+  Verdict,
+} from "./types.js";
 
 interface Waiter {
   resolve: (review: Review | null) => void;
@@ -11,6 +20,9 @@ interface SessionRuntime {
   nextReviewId: number;
   waiters: Waiter[];
   lastReconciliation: { stale: Map<string, string>; orphaned: ReconcileResult["orphaned"] };
+  /** Blocks as they stood at the last submitted review; null until a review
+   * has been submitted, so `getSinceReviewDiff` has nothing to show yet. */
+  sinceReviewSnapshot: Block[] | null;
 }
 
 const runtimes = new Map<string, SessionRuntime>();
@@ -24,6 +36,7 @@ function getRuntime(planPath: string): SessionRuntime {
       nextReviewId: 0,
       waiters: [],
       lastReconciliation: { stale: new Map(), orphaned: [] },
+      sinceReviewSnapshot: null,
     };
     runtimes.set(planPath, runtime);
   }
@@ -49,6 +62,12 @@ export function applyReconciliation(planPath: string, result: ReconcileResult): 
 
 export function getLastReconciliation(planPath: string) {
   return getRuntime(planPath).lastReconciliation;
+}
+
+export function getSinceReviewDiff(planPath: string): SinceReviewDiff {
+  const runtime = getRuntime(planPath);
+  if (!runtime.sinceReviewSnapshot) return { updated: [], added: [], removedCount: 0 };
+  return diffSinceSnapshot(runtime.sinceReviewSnapshot, runtime.blocks);
 }
 
 export function submitReview(
@@ -81,6 +100,7 @@ export function submitReview(
   };
   runtime.reviews.push(review);
   runtime.lastReconciliation = { stale: new Map(), orphaned: [] };
+  runtime.sinceReviewSnapshot = runtime.blocks.slice();
 
   const waiters = runtime.waiters.splice(0, runtime.waiters.length);
   for (const waiter of waiters) {

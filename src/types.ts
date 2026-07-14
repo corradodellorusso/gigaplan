@@ -54,6 +54,16 @@ export interface ReconcileResult {
   orphaned: { id: string; excerpt: string; headingBreadcrumb: string[] }[];
 }
 
+/** Diff of the current blocks against the snapshot taken at the reviewer's
+ * last submitted review — drives the "what changed since you last looked"
+ * highlight, distinct from `ReconcileResult.stale`/`orphaned` (which track
+ * changes since the last file save, for protecting in-progress comments). */
+export interface SinceReviewDiff {
+  updated: string[];
+  added: string[];
+  removedCount: number;
+}
+
 export interface SessionRecord {
   planPath: string;
   createdAt: string;
