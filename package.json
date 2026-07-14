@@ -1,6 +1,6 @@
 {
   "name": "gigaplan",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Review agent-authored implementation plans in a GitHub-PR-style browser UI. Agents write plain Markdown; gigaplan renders, themes, and collects structured feedback.",
   "type": "module",
   "bin": {
