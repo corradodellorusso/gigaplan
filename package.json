@@ -1,7 +1,23 @@
 {
   "name": "gigaplan",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Review agent-authored implementation plans in a GitHub-PR-style browser UI. Agents write plain Markdown; gigaplan renders, themes, and collects structured feedback.",
+  "keywords": [
+    "plan-review",
+    "code-review",
+    "claude-code",
+    "markdown",
+    "agent",
+    "cli"
+  ],
+  "homepage": "https://github.com/corradodellorusso/gigaplan#readme",
+  "bugs": "https://github.com/corradodellorusso/gigaplan/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/corradodellorusso/gigaplan.git"
+  },
+  "license": "MIT",
+  "author": "Corrado dello Russo <info@corradodellorusso.it>",
   "type": "module",
   "bin": {
     "gigaplan": "bin/gigaplan.js"
@@ -36,12 +52,5 @@
     "playwright": "^1.61.1",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3"
-  },
-  "keywords": [
-    "plan-review",
-    "code-review",
-    "claude-code",
-    "cli"
-  ],
-  "license": "MIT"
+  }
 }

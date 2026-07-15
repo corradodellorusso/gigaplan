@@ -1,39 +1,27 @@
 # gigaplan
 
 Review agent-authored implementation plans in a browser, styled as a proper
-review tool rather than a wall of terminal text. The agent writes a plain
-Markdown plan — never HTML — and gigaplan renders it into numbered, collapsible
-sections with per-step inline comments, a review-coverage sidebar, and a
-finish-your-review panel (Approve / Approve with comments / Request changes),
-then hands the structured feedback back to the agent to act on.
+review tool rather than a wall of terminal text. Agents only ever write plain
+Markdown; gigaplan does all the rendering itself — numbered sections,
+per-step inline comments, a review-coverage sidebar, and a finish-your-review
+panel (Approve / Approve with comments / Request changes) — then hands the
+structured feedback back to the agent to act on.
 
 [gigaplan on npm](https://www.npmjs.com/package/gigaplan) ·
 [gigaplan on skills.sh](https://www.skills.sh/corradodellorusso/gigaplan/gigaplan)
 
-The UI follows the "Atelier / Terminal" design system (warm-paper light theme,
-phosphor-terminal dark theme, Bricolage Grotesque + JetBrains Mono type) —
-see `skills/gigaplan/SKILL.md` for the review workflow and `public/chrome.css`
-for the theme itself.
-
-## Getting started
+## Quickstart
 
 No install needed — try it against any Markdown file:
 
 ```
-npx -y gigaplan review path/to/plan.md
+npx -y gigaplan review path/to/plan.md   # opens a browser tab to review it
+npx -y gigaplan poll path/to/plan.md     # blocks until submitted, then prints the feedback
+npx -y gigaplan end path/to/plan.md      # marks the session done
 ```
 
-That opens your browser straight to the review page. Leave a few comments,
-pick a verdict, and submit — then, in a second terminal:
-
-```
-npx -y gigaplan poll path/to/plan.md
-```
-
-blocks until you do, then prints back exactly the compact-markdown feedback an
-agent would read. `npx -y gigaplan end path/to/plan.md` marks the session done
-afterward (the shared local server itself stays running independently — see
-Configuration below).
+See "How it works" below for what happens at each step, or "CLI" for the full
+command reference.
 
 ### Installing the skill
 
@@ -70,13 +58,19 @@ manual refresh. A comment anchored to a section whose text changed is flagged
 "content changed since this comment was left"; a comment on a deleted section is
 kept, not silently dropped, in a "Comments on removed content" area.
 
+The UI itself follows the "Belief" design system (a Notion-style
+document-editor look; light-only in its source, with gigaplan's own dark
+theme added on top) — see `public/chrome.css` for the theme and
+`skills/gigaplan/SKILL.md` for the review workflow it supports.
+
 ## CLI
 
 ```
 gigaplan review <path>   Open (or reuse) the browser review session for this plan file.
 gigaplan poll <path>     Block until a review is submitted; print it as compact markdown.
 gigaplan end <path>      Mark the review session done (the shared local server stays up;
-                         it shuts itself down after a period of inactivity).
+                         it shuts itself down after a period of inactivity — see below).
+gigaplan stop            Stop the shared local server immediately, if one is running.
 ```
 
 ## Configuration
@@ -85,8 +79,7 @@ gigaplan end <path>      Mark the review session done (the shared local server s
 | --- | --- | --- |
 | `GIGAPLAN_PORT` | `4873` | Port the shared local server binds to (loopback-only). |
 | `GIGAPLAN_IDLE_TIMEOUT_MS` | `1800000` (30 min) | How long the server stays up with no requests before it shuts itself down. |
-
-State (session records and the server's pid/port lock) lives in `~/.gigaplan/`.
+| `GIGAPLAN_HOME` | `~/.gigaplan` | Where session records and the server's pid/port lock are stored. |
 
 ## Contributing
 
